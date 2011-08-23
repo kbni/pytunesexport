@@ -37,6 +37,8 @@ def usage(stream):
     stream.write("    -links      or symlink them instead\n")
     stream.write("    -list       list all tracks (and their paths)\n")
     stream.write("    -clear      clear the cache before working\n")
+    stream.write("    -dirs       create a directory for each plalist\n")
+    stream.write("    -delete     delete orphaned mp3s\n")
     stream.write("\n")
     stream.write("  playlist selection..\n")
     stream.write("    playlists are first filtered with -skip, then added back in -keep\n")
@@ -52,7 +54,6 @@ def usage(stream):
     stream.write("                (can specify multiple trims)\n")
     stream.write("    -prep <s>    put <s> before the file path (in playlists only)\n")
     stream.write("    -out <d>    cd to <d> before performing file operations\n")
-    stream.write("    -src <d>    use source directory before performing file operations\n")
     return int(stream==sys.stderr) 
 
 def main(argv):
@@ -89,7 +90,6 @@ def main(argv):
     output_dir = get_flag('out', True, os.getcwd())
     verbose = get_flag('verbose')
     fake_operation = get_flag('pretend')
-    source_dir = get_flag('src')
     halt_on_ioerr = get_flag('halt')
     trim_markers = get_loop('trim')
     skip_playlists = [ re.compile(r) for r in get_loop('skip') ]
@@ -97,7 +97,8 @@ def main(argv):
     test_playlists = get_flag('test')
     list_tracks = get_flag('list')
     clear_cache = get_flag('clear')
-    prepend_string = get_flag('prep', True, '')
+    delete_orphans = get_flag('delete')
+    directory_playlist = get_flag('dirs')
 
     if get_flag('help') or get_flag('h'):
         return usage(sys.stdout)
@@ -157,9 +158,12 @@ def main(argv):
         tracks_fn = []
         for full_path in playlists[playlist_idx][1]:
             rel_path = unfuck_path(full_path, trim_markers)
-            tracks_fn.append(prepend_string + rel_path)
-            if source_dir: full_path = os.path.join(source_dir, rel_path)
-            if output_dir: rel_path = os.path.join(output_dir, rel_path)
+            if directory_playlist:
+                bn = '%04d.%s' % (len(tracks_fn)+1, os.path.basename(rel_path))
+                rel_path = os.path.join(output_dir, name, bn)
+            else:
+                rel_path = os.path.join(output_dir, rel_path)
+            tracks_fn.append(rel_path.replace(output_dir,'')[1:])
             map_paths.append((full_path,rel_path))
 
         m3u_txt = ""
@@ -168,7 +172,7 @@ def main(argv):
         m3u_fn = os.path.join(output_dir, strip_bad_fn_chars(name))
         
         if output_playlists:
-            if verbose:
+            if verbose or fake_operation:
                 print "writing playlist %s (%d tracks)" % (m3u_fn, len(tracks_fn))
             if not fake_operation:
                 m3u_fh = open(m3u_fn, 'w')
