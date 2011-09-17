@@ -24,7 +24,11 @@ def strip_bad_fn_chars(string, BAD = '\',\:*?;"<>|/'):
     for c in BAD: string = string.replace(c, '')
     return string.replace('&','+')+'.m3u'
 
-def usage(stream):
+def touch(fname, times = None):
+    with file(fname, 'a'):
+        os.utime(fname, times)
+
+def usage(stream, add_msg = None):
     stream.write("pyTunesExport v0.1\n")
     stream.write("  -help       display this help page\n")
     stream.write("  -verbose    be verbose about file operations, errors printed at end\n")
@@ -54,6 +58,8 @@ def usage(stream):
     stream.write("                (can specify multiple trims)\n")
     stream.write("    -prep <s>    put <s> before the file path (in playlists only)\n")
     stream.write("    -out <d>    cd to <d> before performing file operations\n")
+    if add_msg:
+        stream.write("\n" + add_msg + "\n")
     return int(stream==sys.stderr) 
 
 def main(argv):
@@ -104,8 +110,7 @@ def main(argv):
         return usage(sys.stdout)
 
     if len(argv) > 1:
-        sys.stderr.write("Extra options: %s\n\n" % ', '.join(argv[1:]))
-        return usage(sys.stderr)
+        return usage(sys.stderr, "Unknown arguments given: %s" % ', '.join(argv[1:]))
     
     if not os.path.exists(xml_file):
         sys.stderr.write("library file (%s) does not exist!\n" % (library_file,))
@@ -159,8 +164,8 @@ def main(argv):
         for full_path in playlists[playlist_idx][1]:
             rel_path = unfuck_path(full_path, trim_markers)
             if directory_playlist:
-                bn = '%04d.%s' % (len(tracks_fn)+1, os.path.basename(rel_path))
-                rel_path = os.path.join(output_dir, name, bn)
+#                bn = '%04d.%s' % (len(tracks_fn)+1, os.path.basename(rel_path))
+                rel_path = os.path.join(output_dir, name, os.path.basename(rel_path))
             else:
                 rel_path = os.path.join(output_dir, rel_path)
             tracks_fn.append(rel_path.replace(output_dir,'')[1:])
@@ -193,6 +198,9 @@ def main(argv):
             if os.path.exists(rel_path):
                 if verbose:
                     print "exists: %s" % (rel_path,)
+                if copy_tracks:
+                    touch(rel_path)
+                    print "touch '%s'" % (rel_path,)
             else:
                 dest_path = os.path.dirname(rel_path)
                 if not os.path.exists(dest_path):
